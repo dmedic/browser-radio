@@ -9,11 +9,10 @@ import os
 
 class TTS():
 
-
 	def convert_text_to_sound(self, text, file_name):
 		with open(file_name, 'w') as f:
-			file_stream = self.text_to_file_stream(text)
-			f.write(file_stream.read())
+			sound_data = self.text_to_sound(text)
+			f.write(sound_data)
 
 
 
@@ -21,8 +20,7 @@ class GoogleTranslate(TTS):
 
 	EXTENSION = "mp3"
 
-
-	def text_to_file_stream(self, text):
+	def text_to_sound(self, text):
 		opener = urllib2.build_opener()
 		opener.addheaders = [('User-agent', 'Mozilla/5.0')]
 		param_string = urllib.urlencode({
@@ -32,7 +30,7 @@ class GoogleTranslate(TTS):
 			})
 		url = "http://translate.google.com/translate_tts?" + param_string
 		response = opener.open(url)
-		return response
+		return response.read()
 
 
 
@@ -40,14 +38,12 @@ class Espeak(TTS):
 
 	EXTENSION = "wav"
 
-
-	def text_to_file_stream(self, text):
+	def text_to_sound(self, text):
 		espeak = Popen(["espeak", "--stdin", "--stdout"],
 			stdin=PIPE,
 			stdout=PIPE)
-		espeak.stdin.write(text)
-		espeak.stdin.close()
-		return espeak.stdout
+		(stdout, stderr) = espeak.communicate(input = text)
+		return stdout
 
 
 
@@ -56,7 +52,8 @@ class SpeechServer(object):
 	sounds_subdir = "sounds"
 	text_subdir = "text"
 	text_filename = "murmurs.txt"
-	play_cmd = "play"
+	play_mp3_cmd = "mpg123"
+	play_wav_cmd = "play"
 
 
 	def __init__(self, tts_class):
@@ -87,8 +84,11 @@ class SpeechServer(object):
 
 
 	def _play(self, filename):
-		os.system("play -t alsa " + filename)
-
+		if filename.endswith("wav"):
+			play_cmd = self.play_wav_cmd
+		else:
+			play_cmd = self.play_mp3_cmd
+		os.system("%s %s </dev/null" % (play_cmd, filename))
 
 	def _create_directories(self):
 		for directory in [self.sounds_subdir, self.text_subdir]:
@@ -107,4 +107,9 @@ if __name__ == "__main__":
 		})
 	#tts_class = Espeak
 	tts_class = GoogleTranslate
-	cherrypy.quickstart(SpeechServer(tts_class))
+	server = SpeechServer(tts_class)
+	if cherrypy.__version__.startswith("2"):
+		cherrypy.root = server
+		cherrypy.server.start()
+	else:
+		cherrypy.quickstart(server)
