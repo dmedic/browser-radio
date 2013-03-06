@@ -71,6 +71,8 @@ class SpeechServer(object):
 			tts.convert_text_to_sound(text, filename)
 			self._play(filename)
 
+	def ping(self):
+		return "pong"
 
 	def _make_file_path(self):
 		rand = random.randint(0,1000)
@@ -97,6 +99,7 @@ class SpeechServer(object):
 
 
     	index.exposed = True
+    	ping.exposed = True
 
 
 
